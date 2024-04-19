@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Cmd line to work out the API. """
+"""Cmd line to work out the API."""
 
 import asyncio
 import sys
@@ -12,7 +12,6 @@ async def do_the_magic(url: str, username: str, password: str):
     """Not a real test client."""
 
     async with OmadaClient(url, username, password, verify_ssl=False) as client:
-
         print(f"Found Omada Controller: {await client.get_controller_name()}")
 
         sites = await client.get_sites()
@@ -20,7 +19,7 @@ async def do_the_magic(url: str, username: str, password: str):
         for site in sites:
             print(f"Connecting to {site.name}")
 
-            site_client = await client.get_site_client(sites[0])
+            site_client = await client.get_site_client(site)
 
             devices = await site_client.get_devices()
 
@@ -29,17 +28,11 @@ async def do_the_magic(url: str, username: str, password: str):
             print(f"    {len([d for d in devices if d.type == 'switch'])} Switches.")
             print(f"    {len([d for d in devices if d.type == 'gateway'])} Routers.")
 
-            for firmware_details in [
-                await site_client.get_firmware_details(d)
-                for d in devices
-                if d.need_upgrade
-            ]:
+            for firmware_details in [await site_client.get_firmware_details(d) for d in devices if d.need_upgrade]:
                 print("Available firmware upgrade:")
                 pprint(vars(firmware_details))
 
-            access_points = [
-                await site_client.get_access_point(a) for a in devices if a.type == "ap"
-            ]
+            access_points = [await site_client.get_access_point(a) for a in devices if a.type == "ap"]
             for access_point in access_points:
                 print(f"Access Point: {access_point.name}")
                 if access_point.name == "Office":
@@ -52,28 +45,16 @@ async def do_the_magic(url: str, username: str, password: str):
                     )
                     pprint(vars(port_status))
 
-            # pprint(vars(devices[0]))
-
             # Get full info of all switches
-            switches = [
-                await site_client.get_switch(s) for s in devices if s.type == "switch"
-            ]
+            switches = [await site_client.get_switch(s) for s in devices if s.type == "switch"]
+            for switch in switches:
+                print(f"Switch: {switch.name}")
+                ports = await site_client.get_switch_ports(switch)
+                for port in ports:
+                    print(f"{port.name}, {port.profile_name}, {port.poe_mode}")
 
-            # pprint(vars(switches[0]))
-
-            # ports = await client.get_switch_ports(switches[0])
-
-            port = await site_client.get_switch_port(switches[0], switches[0].ports[4])
-            print(f"Port index 4: {port.name} Profile: {port.profile_name}")
-            pprint(vars(port))
-
-            updated_port = await site_client.update_switch_port(
-                switches[0], port, new_name="Port5"
-            )
-            pprint(vars(updated_port))
-
-            profiles = await site_client.get_port_profiles()
-            pprint(vars(profiles[0]))
+            router = await site_client.get_gateway()
+            print(f"{router.name}")
 
         print("Done.")
 
